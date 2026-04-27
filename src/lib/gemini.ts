@@ -9,22 +9,30 @@ export type GeminiHistoryItem = {
   }>;
 };
 
-const MODEL_NAME = "gemini-3-flash-preview";
+const MODEL_NAME = "gemini-2.5-flash";
 
 /**
  * Google AI Studio-kompatibilis Gemini kliens.
  *
  * Fontos:
- * - Ne írj valódi API-kulcsot ebbe a fájlba.
- * - Google AI Studio Build módban a GEMINI_API_KEY kezelése automatikus.
+ * - Valódi API-kulcsot ne írj ebbe a fájlba.
+ * - AI Studio Build módban a process.env.GEMINI_API_KEY placeholder/proxy használható.
+ * - Külső éles deploy esetén szerveroldali proxy szükséges.
  */
+
+declare const process: {
+  env: {
+    GEMINI_API_KEY?: string;
+    API_KEY?: string;
+  };
+};
+
 const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || "",
+  apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY || "",
 });
 
 function sanitizeText(value: unknown, maxLength: number): string {
   if (typeof value !== "string") return "";
-
   return value.trim().slice(0, maxLength);
 }
 
@@ -91,7 +99,7 @@ export async function sendMessageToGemini(
     console.error("Gemini API hiba:", error);
 
     throw new Error(
-      "Hiba történt a Gemini válaszgenerálás közben. Ellenőrizd az API-kulcsot, a modellt és az AI Studio beállításait."
+      "Hiba történt a Gemini válaszgenerálás közben. Ellenőrizd az AI Studio Secrets beállításait és a modell elérhetőségét."
     );
   }
 }
