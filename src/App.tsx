@@ -406,7 +406,7 @@ ${activeMode.systemInstruction}`;
                 )}
 
                 {messages.map((m, idx) => (
-                  <div key={idx} className="relative">
+                  <div key={idx} className={cn("relative", m.role === 'model' && "pb-8")}>
                     <ChatMessage message={m.content} isUser={m.role === 'user'} />
                     
                     {m.role === 'model' && m.quizData && (

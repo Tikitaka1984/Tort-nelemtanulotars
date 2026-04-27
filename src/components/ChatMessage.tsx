@@ -1,9 +1,9 @@
+import { useState } from "react";
 import Markdown from "react-markdown";
-import { Download, FileText, File as FileIcon } from "lucide-react";
+import { FileText, File as FileIcon, Copy, Check } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { saveAs } from "file-saver";
-import { useState } from "react";
 
 interface ChatMessageProps {
   message: string;
@@ -11,15 +11,26 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ message, isUser }: ChatMessageProps) {
-  const [isExporting, setIsExporting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
 
   const downloadPDF = () => {
     const doc = new jsPDF();
     const margin = 10;
     const pageWidth = doc.internal.pageSize.getWidth();
+    // Simple text split - a more complex version could handle markdown
     const splitText = doc.splitTextToSize(message, pageWidth - margin * 2);
     doc.text(splitText, margin, 20);
-    doc.save(`tortenelem_tanulotars_${new Date().getTime()}.pdf`);
+    doc.save(`TT_Tanulotars_${new Date().getTime()}.pdf`);
   };
 
   const downloadDocx = async () => {
@@ -35,7 +46,7 @@ export function ChatMessage({ message, isUser }: ChatMessageProps) {
     });
 
     const blob = await Packer.toBlob(doc);
-    saveAs(blob, `tortenelem_tanulotars_${new Date().getTime()}.docx`);
+    saveAs(blob, `TT_Tanulotars_${new Date().getTime()}.docx`);
   };
 
   if (isUser) {
@@ -61,33 +72,40 @@ export function ChatMessage({ message, isUser }: ChatMessageProps) {
           <Markdown>{message}</Markdown>
         </div>
         
-        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute -bottom-8 left-0 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button 
-            onClick={() => setIsExporting(!isExporting)}
-            className="p-1.5 hover:bg-parchment-100 rounded-md text-history-subtle transition-colors"
-            title="Letöltés"
+            onClick={downloadPDF}
+            className="flex items-center gap-1.5 px-2 py-1 bg-white border border-parchment-200 rounded text-[10px] font-bold text-history-blue hover:bg-parchment-50 shadow-sm transition-all"
+            title="Szakmai PDF mentése"
           >
-            <Download size={14} />
+            <FileIcon size={12} className="text-red-600" />
+            PDF MENTÉSE
           </button>
-          
-          {isExporting && (
-            <div className="absolute top-8 right-0 bg-white border border-parchment-200 rounded-lg shadow-xl p-1 z-10 w-32 animate-in zoom-in">
-              <button 
-                onClick={() => { downloadPDF(); setIsExporting(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-parchment-50 rounded-md text-history-text transition-colors"
-              >
-                <FileIcon size={12} className="text-red-600" />
-                PDF mentése
-              </button>
-              <button 
-                onClick={() => { downloadDocx(); setIsExporting(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-parchment-50 rounded-md text-history-text transition-colors"
-              >
-                <FileText size={12} className="text-blue-600" />
-                DOCX mentése
-              </button>
-            </div>
-          )}
+          <button 
+            onClick={downloadDocx}
+            className="flex items-center gap-1.5 px-2 py-1 bg-white border border-parchment-200 rounded text-[10px] font-bold text-history-blue hover:bg-parchment-50 shadow-sm transition-all"
+            title="Szerkeszthető dokumentum mentése"
+          >
+            <FileText size={12} className="text-blue-600" />
+            DOCX MENTÉSE
+          </button>
+          <button 
+            onClick={copyToClipboard}
+            className="flex items-center gap-1.5 px-2 py-1 bg-white border border-parchment-200 rounded text-[10px] font-bold text-history-blue hover:bg-parchment-50 shadow-sm transition-all"
+            title="Szöveg másolása"
+          >
+            {copied ? (
+              <>
+                <Check size={12} className="text-green-600" />
+                MÁSOLVA!
+              </>
+            ) : (
+              <>
+                <Copy size={12} className="text-history-blue" />
+                MÁSOLÁS
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
