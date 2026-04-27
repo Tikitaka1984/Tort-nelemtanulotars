@@ -1,22 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Trash2, LibraryBig, ShieldAlert, X, Menu, CheckCircle2, XCircle, BrainCircuit } from "lucide-react";
+import { Send, Trash2, LibraryBig, ShieldAlert, X, Menu, CheckCircle2, XCircle, BrainCircuit, AlertTriangle } from "lucide-react";
 import { ModeId, MODES, TOPICS, AppMode, GENERAL_SYSTEM_INSTRUCTION, Difficulty } from "./constants";
 import { sendMessageToGemini } from "./lib/gemini";
 import { ChatMessage } from "./components/ChatMessage";
 import { cn } from "./lib/utils";
 import { motion, AnimatePresence } from "motion/react";
-
-interface QuizQuestion {
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-}
-
-interface QuizData {
-  type: 'quiz';
-  questions: QuizQuestion[];
-}
+import { checkUserInputSafety, buildPedagogicalSystemInstruction } from "./lib/safety";
+import { QuizData, QuizQuestion, parseQuizFromResponse } from "./lib/quiz-parser";
 
 interface Message {
   role: 'user' | 'model';
@@ -103,69 +93,107 @@ export default function App() {
   };
 
   const handleSend = async (text: string) => {
-    if (!text.trim() || isLoading) return;
+    if (isLoading) return;
 
-    let finalUserText = text;
-    if (activeModeId === 'forras' && sourceText.trim()) {
-      finalUserText = `Elemzendő forrásszöveg:\n"${sourceText}"\n\nKérdésem a forrással kapcsolatban: ${text}`;
+    let finalUserText = text.trim();
+
+    if (activeModeId === "forras" && sourceText.trim()) {
+      finalUserText = `Elemzendő forrásszöveg:\n"${sourceText.trim()}"\n\nKérdésem a forrással kapcsolatban: ${text.trim()}`;
     }
 
-    const newMessage: Message = { role: 'user', content: text };
-    setMessages(prev => [...prev, newMessage]);
-    setInput('');
+    const guard = checkUserInputSafety(finalUserText);
+
+    if (!guard.allowed) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "model",
+          content: `⚠️ ${guard.warning}`,
+        },
+      ]);
+      return;
+    }
+
+    const newMessage: Message = {
+      role: "user",
+      content: text.trim(),
+    };
+
+    setMessages((prev) => [...prev, newMessage]);
+    setInput("");
     setIsLoading(true);
 
     try {
-      const history = messages.map(m => {
+      const history = messages.map((m) => {
         return {
           role: m.role,
-          parts: [{ text: m.content }]
+          parts: [
+            {
+              text: m.content,
+            },
+          ],
         };
-      }) as { role: 'user' | 'model', parts: [{ text: string }] }[];
+      }) as {
+        role: "user" | "model";
+        parts: [{ text: string }];
+      }[];
 
-      const systemInstruction = `${GENERAL_SYSTEM_INSTRUCTION}
-      
-Jelenlegi mód: ${activeMode.title}
-${activeMode.systemInstruction}
-${activeModeId === 'kviz' ? `Választott nehézségi szint: ${quizDifficulty}` : ''}`;
+      const modeInstruction =
+        activeModeId === "kviz"
+          ? `${activeMode.systemInstruction}\n\nVálasztott nehézségi szint: ${quizDifficulty}`
+          : activeMode.systemInstruction;
 
-      const responseText = await sendMessageToGemini(history, finalUserText, systemInstruction);
-      
+      const systemInstruction = buildPedagogicalSystemInstruction({
+        generalInstruction: GENERAL_SYSTEM_INSTRUCTION,
+        modeTitle: activeMode.title,
+        modeInstruction,
+      });
+
+      const responseText = await sendMessageToGemini(
+        history,
+        finalUserText,
+        systemInstruction
+      );
+
       let finalResponse = responseText;
       let quizData: QuizData | undefined;
 
-      // Check for JSON quiz in the response
-      const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-      if (jsonMatch && activeModeId === 'kviz') {
-        try {
-          const parsed = JSON.parse(jsonMatch[1]);
-          if (parsed.type === 'quiz' && Array.isArray(parsed.questions)) {
-            quizData = parsed;
-            // Strip the JSON block from the readable text if it's there
-            finalResponse = responseText.replace(/```json\n([\s\S]*?)\n```/, '').trim();
-            if (!finalResponse) finalResponse = "Itt a kért kvíz:";
-          }
-        } catch (e) {
-          console.error("Failed to parse quiz JSON", e);
-        }
+      if (activeModeId === "kviz") {
+        const parsedQuiz = parseQuizFromResponse(responseText);
+        finalResponse = parsedQuiz.readableText;
+        quizData = parsedQuiz.quizData;
       }
 
-      if (activeModeId === 'vazlat') {
-        finalResponse += "\n\n> ⚠️ **Emlékeztető:** Ez csak egy kiinduló vázlat! A folyószöveget neked kell önállóan megírni. Az önálló munkát a tanár értékeli, nem az AI által adott szöveget.";
+      if (activeModeId === "vazlat") {
+        finalResponse +=
+          "\n\n> ⚠️ **Emlékeztető:** Ez csak tanulási vázlat. A folyószöveget neked kell önállóan megírni. Az önálló munkát a tanár értékeli, nem az AI által adott szöveget.";
       }
 
-      const modelMessage: Message = { 
-        role: 'model', 
+      const modelMessage: Message = {
+        role: "model",
         content: finalResponse,
-        quizData
+        quizData,
       };
 
-      setMessages(prev => [...prev, modelMessage]);
+      setMessages((prev) => [...prev, modelMessage]);
     } catch (error) {
-      setMessages(prev => [...prev, { 
-        role: 'model', 
-        content: 'Hiba történt a válasz generálása során. Kérlek próbáld újra később.' 
-      }]);
+      console.error("Válaszgenerálási hiba:", error);
+
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Ismeretlen hiba történt.";
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "model",
+          content:
+            "Hiba történt a válasz generálása során.\n\n" +
+            `Részlet: ${errorMessage}\n\n` +
+            "Ellenőrizd az AI Studio Secrets beállításait és próbáld újra.",
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
