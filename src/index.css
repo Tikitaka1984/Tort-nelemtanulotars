@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+
+  --color-parchment-25: #FDFBF7;
+  --color-parchment-50: #F7F3ED;
+  --color-parchment-100: #F1E9DB;
+  --color-parchment-200: #D4C4A8;
+  --color-parchment-300: #E5DCC9;
+  --color-burgundy-800: #7F1D1D;
+  --color-burgundy-900: #5A1414;
+  --color-gold-500: #E9C46A;
+  --color-gold-600: #B45309;
+  --color-history-blue: #1E293B;
+  --color-history-text: #1A1A1A;
+  --color-history-subtle: #4A4A4A;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-in-bottom {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes zoom-in {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-in-bottom: slide-in-bottom 0.5s ease-out;
+  --animate-zoom-in: zoom-in 0.3s ease-out;
+}
+
+@utility animate-in {
+  animation-fill-mode: both;
+}
+@utility fade-in {
+  animation-name: fade-in;
+}
+@utility slide-in-from-bottom-4 {
+  animation-name: slide-in-bottom;
+}
+@utility zoom-in {
+  animation-name: zoom-in;
+}
+
+@layer base {
+  body {
+    @apply bg-parchment-50 text-history-text font-sans;
+  }
+}
+
+.markdown-body p {
+  @apply mb-3 leading-relaxed text-sm;
+}
+.markdown-body ul {
+  @apply list-disc list-inside text-sm space-y-1 opacity-90 mb-3;
+}
+.markdown-body ol {
+  @apply list-decimal pl-6 text-sm mb-3;
+}
+.markdown-body li {
+  @apply mb-1;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  @apply font-display font-bold text-burgundy-800 mt-6 mb-2;
+}
+.markdown-body h1 {
+  @apply text-xl;
+}
+.markdown-body h2 {
+  @apply text-lg;
+}
+.markdown-body h3 {
+  @apply text-base;
+}
+.markdown-body strong {
+  @apply font-bold text-history-blue;
+}
+
+.markdown-body blockquote {
+  @apply border-l-4 border-burgundy-800 bg-red-50 p-4 my-4 italic text-burgundy-900 rounded-r-lg;
+}
