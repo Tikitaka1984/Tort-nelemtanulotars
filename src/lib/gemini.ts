@@ -1,17 +1,26 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 type GeminiRole = "user" | "model";
+
 export type GeminiHistoryItem = {
   role: GeminiRole;
-  parts: Array<{ text: string }>;
+  parts: Array<{
+    text: string;
+  }>;
 };
 
-const MODEL_NAME = "gemini-2.5-flash";  // Stabil, nem-exp verzió kérésre
+const MODEL_NAME = "gemini-2.5-flash";
 
 declare const process: {
-  env: { GEMINI_API_KEY?: string; API_KEY?: string };
+  env: {
+    GEMINI_API_KEY?: string;
+    API_KEY?: string;
+  };
 };
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.API_KEY || "");
+
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY || "",
+});
 
 function sanitizeText(value: unknown, maxLength: number): string {
   if (typeof value !== "string") return "";
@@ -20,12 +29,18 @@ function sanitizeText(value: unknown, maxLength: number): string {
 
 function sanitizeHistory(history: GeminiHistoryItem[]): GeminiHistoryItem[] {
   if (!Array.isArray(history)) return [];
+
   return history
     .filter((item) => {
-      if (!item || (item.role !== "user" && item.role !== "model")) return false;
+      if (!item) return false;
+      if (item.role !== "user" && item.role !== "model") return false;
       if (!Array.isArray(item.parts)) return false;
-      return item.parts.every((part) =>
-        part && typeof part === "object" && typeof part.text === "string"
+
+      return item.parts.every(
+        (part) =>
+          part &&
+          typeof part === "object" &&
+          typeof part.text === "string"
       );
     })
     .slice(-20);
@@ -45,25 +60,39 @@ export async function sendMessageToGemini(
   }
 
   try {
-    const model = genAI.getGenerativeModel({
+    const response = await ai.models.generateContent({
       model: MODEL_NAME,
-      systemInstruction: cleanSystemInstruction
-    });
-    const result = await model.generateContent({
-      contents: [...cleanHistory, { role: "user", parts: [{ text: cleanMessage }] }],
-      generationConfig: {
+      contents: [
+        ...cleanHistory,
+        {
+          role: "user",
+          parts: [{ text: cleanMessage }],
+        },
+      ],
+      config: {
+        systemInstruction: cleanSystemInstruction,
         temperature: 0.6,
-        maxOutputTokens: 2048
-      }
+        maxOutputTokens: 2048,
+      },
     });
 
-    const text = result.response.text()?.trim();
+    const text = response.text?.trim();
+
     if (!text) {
-      throw new Error("Üres modell válasz.");
+      throw new Error("Üres modellválasz.");
     }
+
     return text;
-  } catch (error: any) {
+  } catch (error) {
     console.error("Gemini API hiba:", error);
-    throw new Error(`Gemini hiba: ${error.message}. Ellenőrizd Secrets-et.`);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Ismeretlen Gemini API-hiba.";
+
+    throw new Error(
+      `Gemini hiba: ${message}. Ellenőrizd az AI Studio Secrets beállításait.`
+    );
   }
 }
