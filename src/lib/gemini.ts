@@ -6,9 +6,8 @@ export type GeminiHistoryItem = {
   parts: Array<{ text: string }>;
 };
 
-const MODEL_NAME = "gemini-2.5-flash-exp";  // AI Studio stabil verzió
+const MODEL_NAME = "gemini-2.5-flash";  // Stabil, nem-exp verzió kérésre
 
-// AI Studio automatikusan injectálja a kulcsot
 declare const process: {
   env: { GEMINI_API_KEY?: string; API_KEY?: string };
 };
@@ -50,18 +49,13 @@ export async function sendMessageToGemini(
       model: MODEL_NAME,
       systemInstruction: cleanSystemInstruction
     });
-    const result = await model.generateContent(
-      {
-        contents: [
-          ...cleanHistory,
-          { role: "user", parts: [{ text: cleanMessage }] }
-        ],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 2048
-        }
+    const result = await model.generateContent({
+      contents: [...cleanHistory, { role: "user", parts: [{ text: cleanMessage }] }],
+      generationConfig: {
+        temperature: 0.6,
+        maxOutputTokens: 2048
       }
-    );
+    });
 
     const text = result.response.text()?.trim();
     if (!text) {
