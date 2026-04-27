@@ -15,9 +15,9 @@ const MODEL_NAME = "gemini-2.5-flash";
  * Google AI Studio-kompatibilis Gemini kliens.
  *
  * Fontos:
- * - Valódi API-kulcsot ne írj ebbe a fájlba.
- * - AI Studio Build módban a process.env.GEMINI_API_KEY placeholder/proxy használható.
- * - Külső éles deploy esetén szerveroldali proxy szükséges.
+ * - Valódi API-kulcsot ne írj közvetlenül a kódba.
+ * - AI Studio-ban a GEMINI_API_KEY a Secrets / környezeti változó rendszerből jöjjön.
+ * - Ez a megoldás Google AI Studio-only használatra megfelelő.
  */
 
 declare const process: {

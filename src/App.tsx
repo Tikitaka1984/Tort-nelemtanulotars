@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Trash2, LibraryBig, ShieldAlert, X, Menu, CheckCircle2, XCircle, BrainCircuit } from "lucide-react";
-import { ModeId, MODES, TOPICS, AppMode, GENERAL_SYSTEM_INSTRUCTION } from "./constants";
+import { ModeId, MODES, TOPICS, AppMode, GENERAL_SYSTEM_INSTRUCTION, Difficulty } from "./constants";
 import { sendMessageToGemini } from "./lib/gemini";
 import { ChatMessage } from "./components/ChatMessage";
 import { cn } from "./lib/utils";
@@ -28,6 +28,7 @@ interface Message {
 
 export default function App() {
   const [activeModeId, setActiveModeId] = useState<ModeId>('fogalom');
+  const [quizDifficulty, setQuizDifficulty] = useState<Difficulty>('közepes');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sourceText, setSourceText] = useState('');
@@ -125,7 +126,8 @@ export default function App() {
       const systemInstruction = `${GENERAL_SYSTEM_INSTRUCTION}
       
 Jelenlegi mód: ${activeMode.title}
-${activeMode.systemInstruction}`;
+${activeMode.systemInstruction}
+${activeModeId === 'kviz' ? `Választott nehézségi szint: ${quizDifficulty}` : ''}`;
 
       const responseText = await sendMessageToGemini(history, finalUserText, systemInstruction);
       
@@ -334,6 +336,28 @@ ${activeMode.systemInstruction}`;
                   <p className="text-history-subtle max-w-md mx-auto leading-relaxed">
                     {activeMode.description}
                   </p>
+                  
+                  {activeModeId === 'kviz' && (
+                    <div className="flex flex-col items-center gap-2 mt-4">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-history-blue">Válassz nehézségi szintet</span>
+                      <div className="flex gap-2 p-1 bg-parchment-200 rounded-lg">
+                        {(['könnyű', 'közepes', 'nehéz'] as Difficulty[]).map((level) => (
+                          <button
+                            key={level}
+                            onClick={() => setQuizDifficulty(level)}
+                            className={cn(
+                              "px-4 py-1.5 rounded-md text-xs font-bold transition-all",
+                              quizDifficulty === level 
+                                ? "bg-burgundy-800 text-white shadow-sm" 
+                                : "text-history-subtle hover:bg-parchment-300"
+                            )}
+                          >
+                            {level.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="w-full space-y-4 text-left">
@@ -523,29 +547,52 @@ ${activeMode.systemInstruction}`;
           </div>
 
           {/* Input Area */}
-          <div className="shrink-0 h-20 border-t border-parchment-200 bg-parchment-25 p-4 flex gap-3 items-center">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSend(input);
-                }
-              }}
-              placeholder={activeModeId === 'forras' ? "Mi a kérdésed a forrással kapcsolatban?" : "Írd ide a kérdésedet..."}
-              className="flex-1 h-10 px-4 bg-white border border-parchment-200 rounded text-sm focus:outline-none focus:border-burgundy-800 shadow-inner"
-            />
-            
-            <button
-              onClick={() => handleSend(input)}
-              disabled={!input.trim() || isLoading}
-              className="h-10 px-6 bg-burgundy-800 text-white rounded font-bold text-sm hover:focus:bg-burgundy-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              KÜLDÉS
-            </button>
+          <div className="shrink-0 border-t border-parchment-200 bg-parchment-25 p-4 flex flex-col gap-2">
+            {activeModeId === 'kviz' && messages.length > 0 && (
+              <div className="flex items-center gap-2 mb-1 px-1">
+                <span className="text-[10px] font-bold text-history-blue uppercase tracking-widest">Nehézség:</span>
+                <div className="flex gap-1">
+                  {(['könnyű', 'közepes', 'nehéz'] as Difficulty[]).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => setQuizDifficulty(level)}
+                      className={cn(
+                        "px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all",
+                        quizDifficulty === level 
+                          ? "bg-burgundy-800 text-white shadow-sm" 
+                          : "bg-parchment-200 text-history-subtle hover:bg-parchment-300"
+                      )}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3 items-center">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSend(input);
+                  }
+                }}
+                placeholder={activeModeId === 'forras' ? "Mi a kérdésed a forrással kapcsolatban?" : "Írd ide a kérdésedet..."}
+                className="flex-1 h-10 px-4 bg-white border border-parchment-200 rounded text-sm focus:outline-none focus:border-burgundy-800 shadow-inner"
+              />
+              
+              <button
+                onClick={() => handleSend(input)}
+                disabled={!input.trim() || isLoading}
+                className="h-10 px-6 bg-burgundy-800 text-white rounded font-bold text-sm hover:focus:bg-burgundy-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                KÜLDÉS
+              </button>
+            </div>
           </div>
         </main>
       </div>

@@ -1,6 +1,7 @@
 import { BookOpen, HelpCircle, GraduationCap, FileText, PenTool, BrainCircuit } from "lucide-react";
 
 export type ModeId = 'fogalom' | 'korszak' | 'gyakorlo' | 'forras' | 'vazlat' | 'kviz';
+export type Difficulty = 'könnyű' | 'közepes' | 'nehéz';
 
 export interface AppMode {
   id: ModeId;
@@ -144,13 +145,18 @@ export const MODES: Record<ModeId, AppMode> = {
     id: 'kviz',
     title: 'Tudásellenőrző kvíz',
     icon: BrainCircuit,
-    description: 'Gyors, tesztszerű számonkérés.',
+    description: 'Gyors, tesztszerű számonkérés választott nehézségi szinten.',
     prompts: [
       "Készíts 5 kérdéses kvízt az első világháborúból.",
       "Kérdezz ki évszámokból a magyar történelemhez.",
       "Gyakoroljunk fogalmakat a hidegháborúból."
     ],
     systemInstruction: `Generálj egy interaktív feleletválasztós kvízt.
+A rendszer megadja a választott nehézségi szintet:
+- könnyű: alapfogalmak, közismert évszámok, egyértelmű válaszok.
+- közepes: érettségi szintű összefüggések, fontosabb nevek és események.
+- nehéz: mélyebb elemzést igénylő részletkérdések, ritkább fogalmak, finomabb megkülönböztetések.
+
 Használj struktúrált JSON formátumot az alábbi módon:
 \`\`\`json
 {
@@ -169,7 +175,7 @@ Fontos szabályok:
 1. Mindig pontosan 4 válaszlehetőség legyen.
 2. Csak EGY helyes válasz legyen, és annak indexét add meg (0-3).
 3. A JSON-t markdown kódrészletben küldd el.
-4. Ha a diák kér egy témát, generálj belőle egy 5 kérdéses kvízt.
+4. Ha a diák kér egy témát, generálj belőle egy 5 kérdéses kvízt az adott nehézségi szinten.
 5. Az explanation mezőben indokold meg a helyes választ röviden.`,
     panelData: {
       practice: 'Tényszerű tudás, évszámok, nevek, gyors felidézés.',
