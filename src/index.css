@@ -50,9 +50,45 @@
 }
 
 @layer base {
-  body {
-    @apply bg-parchment-50 text-history-text font-sans;
+  html, body, #root {
+    @apply h-full min-h-full;
   }
+  body {
+    @apply bg-parchment-50 text-history-text font-sans overscroll-none;
+    min-height: 100dvh;
+  }
+}
+
+/* Scroll behavior and spacing */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pb-safe-area {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.markdown-body pre {
+  @apply bg-history-blue text-white p-4 rounded-lg overflow-x-auto my-4 text-xs font-mono;
+  white-space: pre-wrap;
+}
+
+.markdown-body code {
+  @apply bg-parchment-200 px-1.5 py-0.5 rounded font-mono text-[0.8em] font-medium text-history-blue;
+}
+
+.markdown-body table {
+  @apply w-full border-collapse my-4 text-sm overflow-hidden rounded-lg;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown-body th {
+  @apply bg-parchment-200 p-2 text-left font-bold text-history-blue border border-parchment-300;
+}
+
+.markdown-body td {
+  @apply p-2 border border-parchment-300;
 }
 
 .markdown-body p {

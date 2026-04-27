@@ -8,6 +8,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { checkUserInputSafety, buildPedagogicalSystemInstruction } from "./lib/safety";
 import { QuizData, QuizQuestion, parseQuizFromResponse } from "./lib/quiz-parser";
 
+import { MobileHeader } from "./components/MobileHeader";
+import { MobileBottomNav } from "./components/MobileBottomNav";
+import { ResponsiveChatInput } from "./components/ResponsiveChatInput";
+
 interface Message {
   role: 'user' | 'model';
   content: string;
@@ -20,19 +24,15 @@ export default function App() {
   const [activeModeId, setActiveModeId] = useState<ModeId>('fogalom');
   const [quizDifficulty, setQuizDifficulty] = useState<Difficulty>('közepes');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
   const [sourceText, setSourceText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingModeId, setPendingModeId] = useState<ModeId | null>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   // Quiz State
-  const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<string, number>>({});
   const [submittedQuizzes, setSubmittedQuizzes] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const activeMode = MODES[activeModeId];
 
@@ -41,19 +41,14 @@ export default function App() {
   }, [messages, isLoading]);
 
   const handleModeChange = (id: ModeId) => {
-    if (id === activeModeId) {
-      setIsMenuOpen(false);
-      return;
-    }
+    if (id === activeModeId) return;
     
     if (messages.length > 0) {
       setPendingModeId(id);
     } else {
       setActiveModeId(id);
       setSourceText('');
-      setActiveQuizId(null);
     }
-    setIsMenuOpen(false);
   };
 
   const confirmModeChange = (shouldDelete: boolean) => {
@@ -61,7 +56,6 @@ export default function App() {
       const targetId = pendingModeId;
       setActiveModeId(targetId);
       setSourceText('');
-      setActiveQuizId(null);
       
       if (shouldDelete) {
         setMessages([]);
@@ -73,27 +67,15 @@ export default function App() {
   };
 
   const handlePromptClick = (prompt: string) => {
-    setInput(prompt);
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.setSelectionRange(prompt.length, prompt.length);
-      }
-    }, 0);
+    handleSend(prompt);
   };
 
   const handleTopicClick = (topicQuestion: string) => {
-    setInput(topicQuestion);
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.setSelectionRange(topicQuestion.length, topicQuestion.length);
-      }
-    }, 0);
+    handleSend(topicQuestion);
   };
 
   const handleSend = async (text: string) => {
-    if (isLoading) return;
+    if (!text.trim() || isLoading) return;
 
     let finalUserText = text.trim();
 
@@ -120,7 +102,6 @@ export default function App() {
     };
 
     setMessages((prev) => [...prev, newMessage]);
-    setInput("");
     setIsLoading(true);
 
     try {
@@ -286,101 +267,70 @@ export default function App() {
   );
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden text-history-text font-sans">
-      {/* Header */}
-      <header className="shrink-0 h-20 bg-history-blue text-white flex items-center justify-between px-4 md:px-8 border-b-4 border-gold-600 z-30">
+    <div className="flex flex-col min-h-dvh h-dvh overflow-hidden text-history-text font-sans bg-parchment-50">
+      <MobileHeader activeModeId={activeModeId} />
+
+      {/* Desktop Header */}
+      <header className="hidden md:flex shrink-0 h-20 bg-history-blue text-white items-center justify-between px-8 border-b-4 border-gold-600 z-30">
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsMenuOpen(true)}
-            className="md:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <Menu size={24} />
-          </button>
           <LibraryBig size={28} className="text-gold-500" />
           <div>
-            <h1 className="text-lg md:text-2xl font-display font-bold text-gold-500">Történelem Tanulótárs</h1>
-            <h2 className="text-[10px] uppercase tracking-widest opacity-80 hidden sm:block">Érettségi-felkészítő asszisztens</h2>
+            <h1 className="text-2xl font-display font-bold text-gold-500">Történelem Tanulótárs</h1>
+            <h2 className="text-[10px] uppercase tracking-widest opacity-80">Érettségi-felkészítő asszisztens</h2>
           </div>
         </div>
         
-        <div className="text-right max-w-xs hidden sm:block">
-          <p className="text-[10px] leading-tight italic opacity-90">
-            Ez egy tanári tesztverzió. Ne adj meg személyes adatot. <br/>
-            Az AI válaszait mindig ellenőrizni kell tanári vagy hiteles forrás alapján.
+        <div className="text-right max-w-xs">
+          <p className="text-[10px] leading-tight italic opacity-90 text-gold-200">
+            NAT 2020 • 2024-es követelmények
           </p>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden relative">
         {/* Desktop Sidebar: Mode Selector */}
-        <nav className="hidden md:flex w-56 shrink-0 bg-parchment-100 border-r border-parchment-200 flex-col p-4 space-y-2 overflow-y-auto">
+        <aside className="hidden md:flex w-64 shrink-0 bg-parchment-100 border-r border-parchment-200 flex-col p-4 space-y-2 overflow-y-auto">
           <SidebarContent />
-        </nav>
-
-        {/* Mobile Sidebar Overlay */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <>
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsMenuOpen(false)}
-                className="fixed inset-0 bg-history-blue/40 backdrop-blur-sm z-40 md:hidden"
-              />
-              <motion.nav 
-                initial={{ x: -280 }}
-                animate={{ x: 0 }}
-                exit={{ x: -280 }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="fixed top-0 left-0 bottom-0 w-[240px] bg-parchment-100 shadow-2xl z-50 flex flex-col p-4 pt-20 space-y-2 border-r border-parchment-200 md:hidden"
-              >
-                <button 
-                  onClick={() => setIsMenuOpen(false)}
-                  className="absolute top-6 right-4 p-2 text-burgundy-800 hover:bg-burgundy-900/10 rounded-lg transition-colors"
-                >
-                  <X size={24} />
-                </button>
-                <SidebarContent />
-              </motion.nav>
-            </>
-          )}
-        </AnimatePresence>
+        </aside>
 
         {/* Main Content Area */}
-        <main className="flex flex-col flex-1 min-w-0 bg-white relative shadow-inner z-10">
+        <main className="flex flex-col flex-1 min-w-0 bg-white relative shadow-inner z-10 md:rounded-tl-3xl">
           
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 relative">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 relative">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto text-center space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 px-4">
                 <div className="space-y-4">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded bg-gold-500 text-burgundy-800 shadow-sm mx-auto">
-                    <activeMode.icon size={32} />
-                  </div>
-                  <h3 className="font-display text-2xl font-bold text-burgundy-800">
+                  <motion.div 
+                    initial={{ scale: 0.8, rotate: -10 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gold-500 text-burgundy-800 shadow-xl mx-auto"
+                  >
+                    <activeMode.icon size={40} />
+                  </motion.div>
+                  <h3 className="font-display text-3xl font-bold text-burgundy-800">
                     {activeMode.title}
                   </h3>
-                  <p className="text-history-subtle max-w-md mx-auto leading-relaxed">
+                  <p className="text-history-subtle max-w-md mx-auto leading-relaxed font-medium">
                     {activeMode.description}
                   </p>
                   
                   {activeModeId === 'kviz' && (
-                    <div className="flex flex-col items-center gap-2 mt-4">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-history-blue">Válassz nehézségi szintet</span>
-                      <div className="flex gap-2 p-1 bg-parchment-200 rounded-lg">
+                    <div className="flex flex-col items-center gap-3 mt-6">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-history-blue/60">Nehézségi szint</span>
+                      <div className="flex gap-2 p-1.5 bg-parchment-200/50 rounded-2xl border border-parchment-300">
                         {(['könnyű', 'közepes', 'nehéz'] as Difficulty[]).map((level) => (
                           <button
                             key={level}
                             onClick={() => setQuizDifficulty(level)}
                             className={cn(
-                              "px-4 py-1.5 rounded-md text-xs font-bold transition-all",
+                              "px-5 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-wider",
                               quizDifficulty === level 
-                                ? "bg-burgundy-800 text-white shadow-sm" 
-                                : "text-history-subtle hover:bg-parchment-300"
+                                ? "bg-burgundy-800 text-white shadow-lg scale-105" 
+                                : "text-history-blue/50 hover:bg-parchment-300"
                             )}
                           >
-                            {level.toUpperCase()}
+                            {level}
                           </button>
                         ))}
                       </div>
@@ -388,34 +338,34 @@ export default function App() {
                   )}
                 </div>
                 
-                <div className="w-full space-y-4 text-left">
+                <div className="w-full space-y-8 text-left">
                   <div className="max-w-lg mx-auto">
-                    <p className="text-xs font-bold text-history-blue uppercase tracking-widest text-center mb-4">
-                      Témakörök
+                    <p className="text-[10px] font-black text-history-blue/40 uppercase tracking-[0.2em] text-center mb-4">
+                      Válassz kiemelt témát
                     </p>
-                    <div className="flex flex-wrap justify-center gap-2 mb-8">
+                    <div className="flex flex-wrap justify-center gap-2 mb-10">
                       {TOPICS.map((topic) => (
                         <button
                           key={topic.id}
                           onClick={() => handleTopicClick(topic.question)}
-                          className="px-3 py-1.5 rounded-full bg-history-blue text-gold-500 text-xs font-medium border border-gold-600/30 hover:bg-burgundy-800 hover:text-white hover:border-gold-500 transition-all shadow-sm"
+                          className="px-4 py-2 rounded-xl bg-history-blue text-gold-500 text-xs font-black border border-gold-600/20 hover:bg-burgundy-800 hover:text-white hover:border-gold-500 transition-all shadow-md active:scale-95"
                         >
                           {topic.label}
                         </button>
                       ))}
                     </div>
 
-                    <p className="text-xs font-bold text-history-blue uppercase tracking-widest text-center mb-4">
-                      Példakérdések
+                    <p className="text-[10px] font-black text-history-blue/40 uppercase tracking-[0.2em] text-center mb-4">
+                      Vagy próbálj egy példát
                     </p>
                     <div className="grid gap-3">
                       {activeMode.prompts.map((prompt, idx) => (
                         <button
                           key={idx}
                           onClick={() => handlePromptClick(prompt)}
-                          className="text-left px-4 py-3 rounded-lg bg-parchment-25 border border-parchment-200 hover:bg-gold-500/10 hover:border-gold-600 transition-all group"
+                          className="text-left px-5 py-4 rounded-2xl bg-parchment-25 border border-parchment-200 hover:bg-white hover:border-gold-500 transition-all group shadow-sm hover:shadow-md active:scale-[0.98]"
                         >
-                          <p className="text-sm text-history-text group-hover:text-history-blue font-serif">"{prompt}"</p>
+                          <p className="text-sm text-history-text group-hover:text-history-blue font-serif italic leading-relaxed">"{prompt}"</p>
                         </button>
                       ))}
                     </div>
@@ -423,34 +373,30 @@ export default function App() {
                 </div>
 
                 {activeModeId === 'forras' && (
-                  <div className="w-full max-w-lg mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-700">
-                    <label className="text-xs font-bold text-history-blue uppercase tracking-widest block text-center">
-                      Történelmi forrásszöveg
+                  <div className="w-full max-w-lg mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
+                    <label className="text-[10px] font-black text-history-blue/40 uppercase tracking-[0.2em] block text-center">
+                      Forrásszöveg beillesztése
                     </label>
                     <textarea 
                       value={sourceText}
                       onChange={(e) => setSourceText(e.target.value)}
-                      placeholder="Másold ide a történelmi forrásszöveget..."
-                      className="w-full h-40 p-4 bg-parchment-25 border border-parchment-200 rounded-lg text-sm font-serif focus:outline-none focus:border-gold-600 resize-none shadow-inner"
+                      placeholder="Ide másold a történelmi forrást..."
+                      className="w-full h-48 p-5 bg-white border-2 border-parchment-200 rounded-3xl text-sm font-serif focus:outline-none focus:border-gold-600 resize-none shadow-xl transition-all"
                     />
                   </div>
                 )}
               </div>
             ) : (
-              <div className="max-w-3xl mx-auto space-y-6">
-                {activeModeId === 'forras' && (
-                  <div className="mb-8 p-4 bg-parchment-100/50 border border-dashed border-parchment-200 rounded-lg relative group">
-                    <div className="absolute -top-3 left-4 bg-parchment-100 px-2 text-[10px] font-bold text-burgundy-800 uppercase tracking-widest border border-parchment-200">
+              <div className="max-w-3xl mx-auto space-y-8 pb-12">
+                {activeModeId === 'forras' && sourceText && (
+                  <div className="mb-10 p-5 bg-parchment-50 border-2 border-dashed border-parchment-300 rounded-3xl relative group">
+                    <div className="absolute -top-3 left-6 bg-parchment-100 px-3 py-0.5 rounded-full text-[10px] font-black text-burgundy-800 uppercase tracking-widest border border-parchment-300">
                       Aktuális forrás
                     </div>
-                    {sourceText ? (
-                      <p className="text-xs font-serif text-history-subtle italic line-clamp-3">"{sourceText}"</p>
-                    ) : (
-                      <p className="text-xs font-serif text-history-subtle italic opacity-50">Nincs forrás megadva.</p>
-                    )}
+                    <p className="text-xs font-serif text-history-subtle italic line-clamp-2 leading-relaxed">"{sourceText}"</p>
                     <button 
-                      onClick={() => setMessages([])} // Force back to intro if they want to change source easily, or I could add an Edit button
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] underline text-history-blue font-bold uppercase"
+                      onClick={() => setMessages([])}
+                      className="absolute -bottom-3 right-6 bg-white border border-parchment-200 px-3 py-1 rounded-full text-[9px] font-black uppercase text-history-blue hover:bg-parchment-100 transition-colors shadow-sm"
                     >
                       Forrás módosítása
                     </button>
@@ -458,44 +404,43 @@ export default function App() {
                 )}
 
                 {messages.map((m, idx) => (
-                  <div key={idx} className={cn("relative", m.role === 'model' && "pb-8")}>
+                  <div key={idx} className={cn("relative", m.role === 'model' && "pb-4")}>
                     <ChatMessage message={m.content} isUser={m.role === 'user'} />
                     
                     {m.role === 'model' && m.quizData && (
-                      <div className="mt-4 ml-12 bg-white rounded-xl border border-parchment-200 shadow-lg overflow-hidden">
-                        <div className="bg-parchment-100 p-4 border-b border-parchment-200">
-                          <h3 className="font-display font-bold text-burgundy-800 flex items-center gap-2">
-                             <BrainCircuit size={20} className="text-gold-600" />
-                             Tudásellenőrző Kvíz
+                      <div className="mt-6 md:ml-12 bg-white rounded-3xl border border-parchment-300 shadow-2xl overflow-hidden">
+                        <div className="bg-parchment-100 p-5 border-b border-parchment-200">
+                          <h3 className="font-display font-bold text-burgundy-800 flex items-center gap-3">
+                             <BrainCircuit size={24} className="text-gold-600" />
+                             Mérd le a tudásod!
                           </h3>
                         </div>
-                        <div className="p-6 space-y-8">
+                        <div className="p-6 md:p-8 space-y-12">
                           {m.quizData.questions.map((q, qIdx) => {
                             const quizKey = `${idx}-${qIdx}`;
-                            const isSubmitted = submittedQuizzes.has(`${idx}`);
                             const userAnswer = userAnswers[quizKey];
                             
                             return (
-                              <div key={qIdx} className="space-y-4">
-                                <p className="font-serif text-lg text-history-text">{qIdx + 1}. {q.question}</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div key={qIdx} className="space-y-5">
+                                <p className="font-serif text-xl text-history-text font-medium leading-normal">{qIdx + 1}. {q.question}</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   {q.options.map((option, optIdx) => {
                                     const isCorrect = optIdx === q.correctIndex;
                                     const isUserSelection = userAnswer === optIdx;
                                     const isAnswered = userAnswer !== undefined;
                                     
-                                    let btnStyles = "text-left px-4 py-3 rounded-lg border transition-all flex items-center justify-between group ";
+                                    let btnStyles = "text-left px-5 py-4 rounded-2xl border-2 transition-all flex items-start justify-between group h-full ";
                                     
                                     if (isAnswered) {
                                       if (isCorrect) {
-                                        btnStyles += "bg-green-50 border-green-500 text-green-700 font-bold";
+                                        btnStyles += "bg-green-50 border-green-500 text-green-800 font-bold shadow-sm";
                                       } else if (isUserSelection) {
-                                        btnStyles += "bg-red-50 border-red-500 text-red-700 font-bold";
+                                        btnStyles += "bg-red-50 border-red-500 text-red-800 font-bold shadow-sm";
                                       } else {
-                                        btnStyles += "bg-parchment-50 border-parchment-200 text-history-subtle opacity-60";
+                                        btnStyles += "bg-parchment-50 border-parchment-200 text-history-subtle opacity-50";
                                       }
                                     } else {
-                                      btnStyles += "bg-parchment-25 border-parchment-200 hover:border-gold-600 text-history-text hover:bg-gold-500/5";
+                                      btnStyles += "bg-white border-parchment-200 hover:border-gold-500 text-history-text shadow-sm hover:shadow-md active:scale-[0.97]";
                                     }
 
                                     return (
@@ -505,29 +450,37 @@ export default function App() {
                                         disabled={isAnswered}
                                         className={btnStyles}
                                       >
-                                        <span className="text-sm">
-                                          <span className="mr-3 font-bold opacity-50">{['A', 'B', 'C', 'D'][optIdx]}</span>
-                                          {option}
-                                        </span>
-                                        {isAnswered && isCorrect && <CheckCircle2 size={16} className="text-green-600" />}
-                                        {isAnswered && isUserSelection && !isCorrect && <XCircle size={16} className="text-red-600" />}
+                                        <div className="flex gap-4">
+                                          <span className={cn(
+                                            "shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black",
+                                            isAnswered && isCorrect ? "bg-green-500 text-white" : "bg-parchment-200 text-history-blue/40"
+                                          )}>
+                                            {['A', 'B', 'C', 'D'][optIdx]}
+                                          </span>
+                                          <span className="text-sm leading-tight">{option}</span>
+                                        </div>
+                                        {isAnswered && isCorrect && <CheckCircle2 size={18} className="text-green-600 shrink-0 mt-0.5" />}
+                                        {isAnswered && isUserSelection && !isCorrect && <XCircle size={18} className="text-red-600 shrink-0 mt-0.5" />}
                                       </button>
                                     );
                                   })}
                                 </div>
                                 {userAnswer !== undefined && (
                                   <motion.div 
-                                    initial={{ opacity: 0, y: -10 }}
-                                    animate={{ opacity: 1, y: 0 }}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
                                     className={cn(
-                                      "p-3 rounded-lg text-sm font-serif italic",
-                                      userAnswer === q.correctIndex ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                                      "p-4 rounded-2xl text-sm font-serif italic border-l-4",
+                                      userAnswer === q.correctIndex ? "bg-green-50 text-green-900 border-green-500" : "bg-red-50 text-red-900 border-red-500"
                                     )}
                                   >
-                                    <p className="flex items-start gap-2">
-                                      <span className="font-bold shrink-0">Visszajelzés:</span>
-                                      {q.explanation}
-                                    </p>
+                                    <div className="flex items-start gap-3">
+                                      <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                                      <p className="leading-relaxed">
+                                        <span className="font-bold uppercase tracking-widest text-[10px] block mb-1">Magyarázat</span>
+                                        {q.explanation}
+                                      </p>
+                                    </div>
                                   </motion.div>
                                 )}
                               </div>
@@ -540,133 +493,106 @@ export default function App() {
                         </div>
                       </div>
                     )}
-
-                    {m.role === 'model' && (m.isCorrect || m.isIncorrect) && (
-                      <div className={cn(
-                        "absolute -right-2 top-0 transform translate-x-full mt-2 flex items-center justify-center w-8 h-8 rounded-full shadow-md z-10",
-                        m.isCorrect ? "bg-green-100 text-green-600 border border-green-200" : "bg-red-100 text-red-600 border border-red-200"
-                      )}>
-                        {m.isCorrect ? (
-                          <span className="text-xl font-bold">✓</span>
-                        ) : (
-                          <span className="text-xl font-bold">✗</span>
-                        )}
-                      </div>
-                    )}
                   </div>
                 ))}
                 {isLoading && (
-                  <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded bg-gold-500 flex-shrink-0 flex items-center justify-center font-display text-burgundy-800 font-bold">
+                  <div className="flex gap-4 px-2">
+                    <div className="w-10 h-10 rounded-xl bg-history-red text-white flex-shrink-0 flex items-center justify-center font-black text-xs shadow-lg animate-pulse">
                       TT
                     </div>
-                    <div className="max-w-[85%] bg-parchment-25 border border-parchment-200 p-4 rounded-r-xl rounded-bl-xl shadow-sm w-full block">
-                      <div className="flex items-center gap-1.5 h-5">
-                        <div className="w-2 h-2 rounded-full bg-burgundy-800/40 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <div className="w-2 h-2 rounded-full bg-burgundy-800/40 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <div className="w-2 h-2 rounded-full bg-burgundy-800/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div className="max-w-[85%] bg-white border border-parchment-200 p-5 rounded-2xl rounded-tl-none shadow-xl flex items-center">
+                      <div className="flex items-center gap-1.5 h-6">
+                        <div className="w-1.5 h-1.5 rounded-full bg-history-red/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-history-red/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-history-red/40 animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
                     </div>
                   </div>
                 )}
-                <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} className="h-20" />
               </div>
             )}
           </div>
 
           {/* Input Area */}
-          <div className="shrink-0 border-t border-parchment-200 bg-parchment-25 p-4 flex flex-col gap-2">
-            {activeModeId === 'kviz' && messages.length > 0 && (
-              <div className="flex items-center gap-2 mb-1 px-1">
-                <span className="text-[10px] font-bold text-history-blue uppercase tracking-widest">Nehézség:</span>
-                <div className="flex gap-1">
-                  {(['könnyű', 'közepes', 'nehéz'] as Difficulty[]).map((level) => (
-                    <button
-                      key={level}
-                      onClick={() => setQuizDifficulty(level)}
-                      className={cn(
-                        "px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-all",
-                        quizDifficulty === level 
-                          ? "bg-burgundy-800 text-white shadow-sm" 
-                          : "bg-parchment-200 text-history-subtle hover:bg-parchment-300"
-                      )}
-                    >
-                      {level}
-                    </button>
-                  ))}
+          <div className="shrink-0 border-t border-parchment-200 bg-parchment-25/80 backdrop-blur-md p-4 md:p-6 pb-safe-area z-20">
+            <div className="max-w-3xl mx-auto">
+              {activeModeId === 'kviz' && messages.length > 0 && (
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <span className="text-[10px] font-black text-history-blue/40 uppercase tracking-widest">Gyakorlás szintje</span>
+                  <div className="flex gap-1.5 p-1 bg-parchment-200/50 rounded-xl border border-parchment-300">
+                    {(['könnyű', 'közepes', 'nehéz'] as Difficulty[]).map((level) => (
+                      <button
+                        key={level}
+                        onClick={() => setQuizDifficulty(level)}
+                        className={cn(
+                          "px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all tracking-wider",
+                          quizDifficulty === level 
+                            ? "bg-burgundy-800 text-white shadow-md scale-105" 
+                            : "text-history-blue/50 hover:bg-parchment-300"
+                        )}
+                      >
+                        {level}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-            <div className="flex gap-3 items-center">
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleSend(input);
-                  }
-                }}
-                placeholder={activeModeId === 'forras' ? "Mi a kérdésed a forrással kapcsolatban?" : "Írd ide a kérdésedet..."}
-                className="flex-1 h-10 px-4 bg-white border border-parchment-200 rounded text-sm focus:outline-none focus:border-burgundy-800 shadow-inner"
-              />
+              )}
               
-              <button
-                onClick={() => handleSend(input)}
-                disabled={!input.trim() || isLoading}
-                className="h-10 px-6 bg-burgundy-800 text-white rounded font-bold text-sm hover:focus:bg-burgundy-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                KÜLDÉS
-              </button>
+              <ResponsiveChatInput 
+                onSend={handleSend}
+                isLoading={isLoading}
+                placeholder={activeModeId === 'forras' ? "Mi a kérdésed a forrással kapcsolatban?" : "Kérdezz a tananyagról..."}
+              />
             </div>
           </div>
         </main>
       </div>
 
+      <MobileBottomNav activeModeId={activeModeId} onModeChange={handleModeChange} />
+
       {/* Mode Change Modal */}
       <AnimatePresence>
         {pendingModeId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setPendingModeId(null)}
-              className="absolute inset-0 bg-history-blue/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-history-blue/60 backdrop-blur-md"
             />
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-xl shadow-2xl border border-parchment-200 overflow-hidden"
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              className="relative w-full max-w-sm bg-white rounded-[2rem] shadow-2xl border border-parchment-200 overflow-hidden"
             >
-              <div className="bg-parchment-100 p-4 border-b border-parchment-200 flex justify-between items-center">
-                <h3 className="font-display font-bold text-burgundy-800 uppercase tracking-wide">Módváltás</h3>
+              <div className="bg-parchment-50 p-6 border-b border-parchment-200 flex justify-between items-center">
+                <h3 className="font-display font-black text-burgundy-800 uppercase tracking-wider">Új korszak kezdete</h3>
                 <button 
                   onClick={() => setPendingModeId(null)}
-                  className="text-history-subtle hover:text-burgundy-800 transition-colors"
+                  className="w-8 h-8 rounded-full bg-parchment-200 flex items-center justify-center text-history-blue/50 hover:text-burgundy-800 transition-colors"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
-              <div className="p-6">
-                <p className="text-history-text font-serif text-lg leading-relaxed mb-8">
-                  Új tanulási módot választottál. Törlöd az eddigi beszélgetést?
+              <div className="p-8">
+                <p className="text-history-text font-serif text-lg leading-relaxed mb-10 text-center">
+                  Új tanulási módot választottál. Lezárjuk a jelenlegi beszélgetést?
                 </p>
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={() => confirmModeChange(true)}
-                    className="w-full py-3 bg-burgundy-800 text-white rounded-lg font-bold hover:bg-burgundy-900 transition-colors shadow-sm"
+                    className="w-full py-4 bg-history-red text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-history-red/30 active:scale-95 transition-all"
                   >
-                    Igen, törlöm
+                    Igen, tiszta lap
                   </button>
                   <button
                     onClick={() => confirmModeChange(false)}
-                    className="w-full py-3 bg-white border border-parchment-200 text-history-blue rounded-lg font-bold hover:bg-parchment-50 transition-colors"
+                    className="w-full py-4 bg-parchment-100 text-history-blue rounded-2xl font-black uppercase tracking-widest hover:bg-parchment-200 active:scale-95 transition-all"
                   >
-                    Mégsem
+                    Maradjon meg
                   </button>
                 </div>
               </div>
